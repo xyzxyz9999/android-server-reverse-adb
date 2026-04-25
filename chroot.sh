@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 # Utilities to interact with the chroot
 
@@ -39,9 +40,9 @@ HELP
 # Run both one-liners and multi-line
 run() {
   if [ $# -gt 0 ]; then
-    echo "$*" | adb shell "$CHROOT_ENTER_CMD"
+    echo "$*" | adb shell -T "$CHROOT_ENTER_CMD"
   else
-    adb shell "$CHROOT_ENTER_CMD"
+    adb shell -T "$CHROOT_ENTER_CMD"
   fi
 }
 
@@ -60,12 +61,14 @@ run() {
 
 ### File operations
 push() {
+  [[ $# -lt 1 ]] && { echo "Usage: push SRC [DEST]" >&2; return 1; }
   local src="$1"
   local dest="${2:-/tmp/$(basename "$1")}"
   adb push "$src" "/data/local/chroot-distro/installed-rootfs/${CHROOT_DISTRO_NAME}${dest}"
 }
 
 pull() {
+  [[ $# -lt 1 ]] && { echo "Usage: pull SRC [DEST]" >&2; return 1; }
   local src="$1"
   local dest="${2:-.}"
   adb pull "/data/local/chroot-distro/installed-rootfs/${CHROOT_DISTRO_NAME}${src}" "$dest"
