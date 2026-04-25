@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 # Script to run on Linux server (e.g. Raspberry Pi) on startup to recover connection with Android phone
 # Assumes that previously a (one-off) basic setup has been made
@@ -34,8 +35,8 @@
 # ```
 
 setup_adb_server() {
-  sudo adb kill-server || true   # sanity: kill any previously running server
-  sudo adb devices   # start adb server as root
+  sudo adb kill-server 2>/dev/null || true   # sanity: kill any previously running server
+  sudo adb devices &>/dev/null # start adb server as root
 }
 
 # run commands in Android device
@@ -69,9 +70,15 @@ verify_root() {
 # Network setup
 
 USB_INTERFACE="usb0"  # the one on the Linux server
-LOCAL_USB_IP=$(ip -4 addr show $USB_INTERFACE | awk '/inet / {print $2}' | cut -d/ -f1)
-ANDROID_USB_IP=$(echo $LOCAL_USB_IP | sed 's/\.[0-9]*$/.50/')
+LOCAL_USB_IP=""
+ANDROID_USB_IP=""
 ANDROID_USB_INTERFACE="rndis0"
+
+detect_usb_ip() {
+  LOCAL_USB_IP=$(ip -4 addr show "$USB_INTERFACE" | awk '/inet / {print $2}' | cut -d/ -f1)
+  [[ -z "$LOCAL_USB_IP" ]] && { echo "ERROR: no IP on $USB_INTERFACE" >&2; exit 1; }
+  ANDROID_USB_IP=$(echo "$LOCAL_USB_IP" | sed 's/\.[0-9]*$/.50/')
+}
 
 android_ip_setup() {
   echo "Setting IP: $ANDROID_USB_IP at $ANDROID_USB_INTERFACE"
@@ -137,7 +144,7 @@ fi
   --bind-interfaces \
   --pid-file=/data/local/tmp/dnsmasq.pid
 echo dnsmasq started # sanity check
-"
+" || true  # timeout exit 124 is expected
 
   # point the system resolver at localhost
   adb_run setprop net.dns1 127.0.0.1
@@ -162,8 +169,6 @@ verify_dns() {
 # Execution
 
 main() {
-  set -euo pipefail
-
   echo "Setting up local ADB server..."
   setup_adb_server
 
@@ -171,7 +176,8 @@ main() {
   verify_root
 
   echo "Setting up IP..."
-  android_net_setup
+  detect_usb_ip
+  android_ip_setup
   verify_lan
   verify_internet
   echo "Android IP setup"
@@ -185,4 +191,4 @@ main() {
 }
 
 
-[[ "${BASH_SOURCE[0]}" == "${0}" ]] && main
+[[ "${BASH_SOURCE[0]}" == "${0}" ]] && main "$@"
