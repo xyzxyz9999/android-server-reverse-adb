@@ -36,6 +36,7 @@ set -euo pipefail
 
 setup_adb_server() {
   sudo adb kill-server 2>/dev/null || true   # sanity: kill any previously running server
+  sudo adb root
   sudo adb devices &>/dev/null # start adb server as root
 }
 
